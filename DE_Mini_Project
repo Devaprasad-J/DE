@@ -1,0 +1,208 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# # Building a Historical Temperature Data Ingestion Pipeline
+# Using the WeatherAPI.com and Python
+
+# Define the data requirement
+
+# In[ ]:
+
+
+import requests
+import json
+import psycopg2
+from kafka import KafkaProducer
+from kafka import KafkaConsumer
+import matplotlib.pyplot as plt
+
+
+# In[ ]:
+
+
+# Define the WeatherAPI.com endpoint and your API key
+weather_api_endpoint = 'https://api.weatherapi.com/v1/history.json'
+api_key = '56c9e8d497874998bc744157232505'
+location = 'New York' 
+# Set the start and end dates for data collection
+start_date = '2023-01-01'
+end_date = '2023-01-10'
+
+
+# Set up the Data Pipeline
+
+# In[ ]:
+
+
+# Kafka configuration
+bootstrap_servers = 'localhost:9092'
+topic = 'weather_data'
+
+
+# Kafka producer to send messages
+producer = KafkaProducer(bootstrap_servers=bootstrap_servers)
+
+# Kafka consumer to receive messages
+consumer = KafkaConsumer(bootstrap_servers=bootstrap_servers,
+                         group_id='weather_consumer',
+                         auto_offset_reset='earliest')
+consumer.subscribe([topic])
+
+
+
+#  Collect the data
+
+# In[ ]:
+
+
+def fetch_weather_data():
+    url = f'http://api.weatherapi.com/v1/history.json?key={api_key}&q={location}&dt={start_date}&end_dt={end_date}'
+    response = requests.get(url)
+    return response.json()
+
+def produce_weather_data():
+    data = fetch_weather_data()
+    producer.send(topic, json.dumps(data).encode('utf-8'))
+    producer.flush()
+
+def consume_weather_data():
+    for message in consumer:
+        weather_data = json.loads(message.value.decode('utf-8'))
+        # Process the weather data as needed
+        print(weather_data)
+
+# Start producing weather data
+produce_weather_data()
+
+# Start consuming weather data
+consume_weather_data()
+
+
+# Transform the data
+
+# In[ ]:
+
+
+def process_weather_data(data):
+    # Extract the required information from the raw data
+    location = data['location']['name']
+    date = data['forecast']['forecastday'][0]['date']
+    temperature = data['forecast']['forecastday'][0]['day']['avgtemp_c']
+    precipitation = data['forecast']['forecastday'][0]['day']['totalprecip_mm']
+    wind_speed = data['forecast']['forecastday'][0]['day']['maxwind_kph']
+
+
+# Store the data
+
+# In[ ]:
+
+
+# Configure the Kafka consumer
+consumer = KafkaConsumer('weather_data', bootstrap_servers='localhost:9092')
+
+# Configure the PostgreSQL connection
+connection = psycopg2.connect(
+    host='localhost',
+    port='5432',
+    database='Trial',
+    user='postgres',
+    password='Dpsql@123'
+)
+
+# Create a cursor to interact with the database
+cursor = connection.cursor()
+
+# Create the weather_data table in the database if it doesn't exist
+create_table_query = '''
+    CREATE TABLE IF NOT EXISTS weather_data (
+        id SERIAL PRIMARY KEY,
+        date DATE NOT NULL,
+        temperature DECIMAL,
+        precipitation DECIMAL,
+        wind_speed DECIMAL
+    );
+'''
+cursor.execute(create_table_query)
+connection.commit()
+
+
+
+# In[ ]:
+
+
+# Define the function to store weather data in PostgreSQL
+def store_weather_data(data):
+    # Iterate over each weather data entry and insert it into the database
+    for entry in data:
+        date = entry['date']
+        temperature = entry['temperature']
+        precipitation = entry['precipitation']
+        wind_speed = entry['wind_speed']
+
+        insert_query = '''
+            INSERT INTO weather_data (date, temperature, precipitation, wind_speed)
+            VALUES (%s, %s, %s, %s);
+        '''
+        cursor.execute(insert_query, (date, temperature, precipitation, wind_speed))
+        connection.commit()
+
+# Consume and store the weather data in the PostgreSQL database
+for message in consumer:
+    data = message.value
+    store_weather_data(data)
+
+
+# Visualize the data
+
+# In[ ]:
+
+
+# Retrieve weather data from PostgreSQL
+def retrieve_weather_data():
+    query = "SELECT timestamp, temperature, humidity FROM weather_data"
+    cursor.execute(query)
+    data = cursor.fetchall()
+    return data
+
+# Generate temperature and humidity plots
+def generate_weather_plots():
+    weather_data = retrieve_weather_data()
+    timestamps = [row[0] for row in weather_data]
+    temperatures = [row[1] for row in weather_data]
+    humidity = [row[2] for row in weather_data]
+
+    # Plot temperature
+    plt.figure(figsize=(10, 6))
+    plt.plot(timestamps, temperatures, 'b-', label='Temperature')
+    plt.xlabel('Timestamp')
+    plt.ylabel('Temperature (°C)')
+    plt.title('Temperature Over Time')
+    plt.legend()
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+    # Plot humidity
+    plt.figure(figsize=(10, 6))
+    plt.plot(timestamps, humidity, 'g-', label='Humidity')
+    plt.xlabel('Timestamp')
+    plt.ylabel('Humidity (%)')
+    plt.title('Humidity Over Time')
+    plt.legend()
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+
+# Generate weather plots
+generate_weather_plots()
+
+# Close the database connection
+cursor.close()
+conn.close()
+
+
+# In[ ]:
+
+
+
+
