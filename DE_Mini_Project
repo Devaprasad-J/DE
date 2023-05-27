@@ -169,7 +169,7 @@ def generate_weather_plots():
     weather_data = retrieve_weather_data()
     timestamps = [row[0] for row in weather_data]
     temperatures = [row[1] for row in weather_data]
-    humidity = [row[2] for row in weather_data]
+    precipitation = [row[2] for row in weather_data]
 
     # Plot temperature
     plt.figure(figsize=(10, 6))
