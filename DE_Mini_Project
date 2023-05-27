@@ -159,7 +159,7 @@ for message in consumer:
 
 # Retrieve weather data from PostgreSQL
 def retrieve_weather_data():
-    query = "SELECT date, temperature, humidity FROM weather_data"
+    query = "SELECT date, temperature, precipitation FROM weather_data"
     cursor.execute(query)
     data = cursor.fetchall()
     return data
@@ -184,10 +184,10 @@ def generate_weather_plots():
 
     # Plot humidity
     plt.figure(figsize=(10, 6))
-    plt.plot(date, humidity, 'g-', label='Humidity')
+    plt.plot(date, precipitation, 'g-', label='Humidity')
     plt.xlabel('date')
-    plt.ylabel('Humidity (%)')
-    plt.title('Humidity Over Time')
+    plt.ylabel('precipitation (%)')
+    plt.title('precipitation Over Time')
     plt.legend()
     plt.xticks(rotation=45)
     plt.tight_layout()
