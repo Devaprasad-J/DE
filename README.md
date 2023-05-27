@@ -43,9 +43,3 @@ Retrieve the required data from the PostgreSQL database using SQL queries.
 Utilize the matplotlib library to create visualizations based on the retrieved data.
 Customize the visualizations by adding labels, titles, legends, etc.
 Display the visualizations using the appropriate matplotlib functions.
-## 6. Automation
-Install the schedule library to schedule the data pipeline.
-Define the desired schedule for running the data pipeline (e.g., daily, hourly, etc.).
-Implement a function that encapsulates the entire data engineering process, from data collection to visualization generation.
-Use the schedule library to schedule the execution of the function based on the defined schedule.
-Run the scheduled tasks indefinitely to automate the data engineering project.
